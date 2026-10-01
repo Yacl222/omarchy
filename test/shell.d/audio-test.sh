@@ -30,6 +30,26 @@ assert(audio.isHeadphones(headphones), 'audio detects headphone devices')
 assertEqual(audio.sinkGlyph(headphones), '󰋋', 'audio uses headphone sink glyph')
 assert(audio.sourceGlyph({ ready: true, properties: { 'device.icon-name': 'camera-webcam' } }).length > 0, 'audio maps webcam source glyph')
 
+const speakers = { id: 58, name: 'alsa_output.speaker', ready: true, properties: { 'node.nick': 'Built-in Audio Speakers Output' } }
+assertDeepEqual(
+  audio.deviceSnapshot([speakers, { ...headphones, id: 71 }], audio.sinkGlyph),
+  [
+    { id: 58, name: 'alsa_output.speaker', label: 'Speakers', glyph: audio.sinkGlyph(speakers) },
+    { id: 71, name: 'bluez_output.airpods', label: audio.nodeLabel(headphones), glyph: '󰋋' }
+  ],
+  'audio snapshots devices as plain rows'
+)
+assertDeepEqual(
+  audio.deviceSnapshot([null, { id: 3 }, { name: 'no-id' }, speakers], audio.sinkGlyph).map(row => row.id),
+  [58],
+  'audio snapshot skips nodes without an id and name'
+)
+assertDeepEqual(audio.deviceSnapshot(null, audio.sinkGlyph), [], 'audio snapshot tolerates a missing list')
+assert(
+  !audio.deviceSnapshot([speakers], audio.sinkGlyph).some(row => Object.values(row).some(v => v !== null && typeof v === 'object')),
+  'audio snapshot rows hold no object references'
+)
+
 assertEqual(audio.friendlyStreamLabel('spotify'), 'Spotify', 'audio normalizes known stream labels')
 assert(audio.streamRepresentsMprisPlayer('Chromium', 'Chromium Browser'), 'audio matches related stream and MPRIS labels')
 

@@ -22,6 +22,21 @@ function listSnapshot(list) {
   return list && list.slice ? list.slice() : []
 }
 
+// Plain-data rows for the device Repeaters. Handing PwNode objects to a
+// Repeater lets a delegate being incubated read a node PipeWire has already
+// destroyed (sink teardown on unplug or profile switch), which segfaults the
+// shell. Copy what the rows show now; resolve the live node by id on click.
+function deviceSnapshot(list, glyphFn) {
+  var out = []
+  if (!list) return out
+  for (var i = 0; i < list.length; i++) {
+    var n = list[i]
+    if (!n || n.id === undefined || n.id === null || !n.name) continue
+    out.push({ id: n.id, name: String(n.name), label: nodeLabel(n), glyph: glyphFn(n) })
+  }
+  return out
+}
+
 function outputVolumeName(volume, muted) {
   if (muted) return "Muted"
   var p = Math.round(volume * 100)
@@ -238,6 +253,7 @@ if (typeof module !== "undefined") {
     isPlaybackStream: isPlaybackStream,
     isAudioSource: isAudioSource,
     listSnapshot: listSnapshot,
+    deviceSnapshot: deviceSnapshot,
     outputVolumeName: outputVolumeName,
     parseSinkAvailability: parseSinkAvailability,
     friendlyDeviceLabel: friendlyDeviceLabel,

@@ -292,13 +292,13 @@ Panel {
     if (focusSection === "output") {
       if (selectedIndex === -1) { toggleOutputMute(); return }
       var sink = displayAudioSinks[selectedIndex]
-      if (sink) setDefaultSink(sink)
+      if (sink) setDefaultSink(liveNode(sink))
       return
     }
     if (focusSection === "input") {
       if (selectedIndex === -1) { toggleInputMute(); return }
       var src = displayAudioSources[selectedIndex]
-      if (src) setDefaultSource(src)
+      if (src) setDefaultSource(liveNode(src))
       return
     }
     if (focusSection === "streams" && selectedIndex >= 0) {
@@ -330,8 +330,8 @@ Panel {
 
   function refreshDisplayAudioModels() {
     if (!opened) return
-    displayAudioSinks = listSnapshot(audioSinks)
-    displayAudioSources = listSnapshot(audioSources)
+    displayAudioSinks = Model.deviceSnapshot(audioSinks, Model.sinkGlyph)
+    displayAudioSources = Model.deviceSnapshot(audioSources, Model.sourceGlyph)
     displayAudioStreams = listSnapshot(audioStreams)
     clampCursor()
   }
@@ -460,6 +460,17 @@ Panel {
     if (hasInput) source.audio.muted = mute
   }
 
+  // Device rows hold plain snapshots (see Model.deviceSnapshot); find the
+  // current PwNode for one, or null if it has gone away since the snapshot.
+  function liveNode(item) {
+    if (!item) return null
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i]
+      if (n && n.id === item.id && String(n.name) === item.name) return n
+    }
+    return null
+  }
+
   function setDefaultSink(node) {
     if (!node) return
     Pipewire.preferredDefaultAudioSink = node
@@ -499,24 +510,12 @@ Panel {
     return Model.friendlyDeviceLabel(text)
   }
 
-  function nodeLabel(node) {
-    return Model.nodeLabel(node)
-  }
-
   function nodeProps(node) {
     return Model.nodeProps(node)
   }
 
   function isHeadphones(node) {
     return Model.isHeadphones(node)
-  }
-
-  function sinkGlyph(node) {
-    return Model.sinkGlyph(node)
-  }
-
-  function sourceGlyph(node) {
-    return Model.sourceGlyph(node)
   }
 
   function friendlyStreamLabel(label) {
@@ -857,7 +856,7 @@ Panel {
                 required property var modelData
                 required property int index
                 width: panelColumn.width
-                node: modelData
+                item: modelData
                 rowIndex: index
               }
             }
@@ -965,7 +964,7 @@ Panel {
                 required property var modelData
                 required property int index
                 width: panelColumn.width
-                node: modelData
+                item: modelData
                 rowIndex: index
               }
             }
@@ -1012,10 +1011,10 @@ Panel {
   // from hasCursor/current via CursorSurface, never from containsMouse.
   component SinkRow: CursorSurface {
     id: sinkRow
-    required property var node
+    required property var item
     required property int rowIndex
 
-    readonly property bool isActive: root.sink && node && root.sink.id === node.id
+    readonly property bool isActive: !!(root.sink && item && root.sink.id === item.id)
     hasCursor: root.cursorActive && root.focusSection === "output" && root.selectedIndex === rowIndex
     onHasCursorChanged: if (hasCursor) root.ensureCursorVisible(sinkRow)
     current: isActive
@@ -1035,7 +1034,7 @@ Panel {
 
       Text {
         textFormat: Text.PlainText
-        text: root.sinkGlyph(sinkRow.node)
+        text: sinkRow.item ? sinkRow.item.glyph : ""
         color: root.bar.foreground
         font.family: root.bar.fontFamily
         font.pixelSize: Style.font.title
@@ -1046,7 +1045,7 @@ Panel {
 
       Text {
         textFormat: Text.PlainText
-        text: root.nodeLabel(sinkRow.node)
+        text: sinkRow.item ? sinkRow.item.label : ""
         color: root.bar.foreground
         font.family: root.bar.fontFamily
         font.pixelSize: Style.font.body
@@ -1066,17 +1065,17 @@ Panel {
         root.focusSection = "output"
         root.selectedIndex = sinkRow.rowIndex
       }
-      onClicked: root.setDefaultSink(sinkRow.node)
+      onClicked: root.setDefaultSink(root.liveNode(sinkRow.item))
     }
   }
 
   // Input device row — sibling of SinkRow for the "input" section.
   component SourceRow: CursorSurface {
     id: sourceRow
-    required property var node
+    required property var item
     required property int rowIndex
 
-    readonly property bool isActive: root.source && node && root.source.id === node.id
+    readonly property bool isActive: !!(root.source && item && root.source.id === item.id)
     hasCursor: root.cursorActive && root.focusSection === "input" && root.selectedIndex === rowIndex
     onHasCursorChanged: if (hasCursor) root.ensureCursorVisible(sourceRow)
     current: isActive
@@ -1096,7 +1095,7 @@ Panel {
 
       Text {
         textFormat: Text.PlainText
-        text: root.sourceGlyph(sourceRow.node)
+        text: sourceRow.item ? sourceRow.item.glyph : ""
         color: root.bar.foreground
         font.family: root.bar.fontFamily
         font.pixelSize: Style.font.title
@@ -1107,7 +1106,7 @@ Panel {
 
       Text {
         textFormat: Text.PlainText
-        text: root.nodeLabel(sourceRow.node)
+        text: sourceRow.item ? sourceRow.item.label : ""
         color: root.bar.foreground
         font.family: root.bar.fontFamily
         font.pixelSize: Style.font.body
@@ -1127,7 +1126,7 @@ Panel {
         root.focusSection = "input"
         root.selectedIndex = sourceRow.rowIndex
       }
-      onClicked: root.setDefaultSource(sourceRow.node)
+      onClicked: root.setDefaultSource(root.liveNode(sourceRow.item))
     }
   }
 
